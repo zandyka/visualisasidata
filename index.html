@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analisis Teller Interaktif</title>
+
+    <link rel="icon" href="data:image/svg+xml,
+        <svg viewBox='0 0 500 500' xmlns='http://www.w3.org/2000/svg'>
+            <style>
+                .bs-blue { fill: %23224192; }
+                .bs-orange { fill: %23F08519; }
+                @media (prefers-color-scheme: dark) {
+                    .bs-blue { fill: %235c85d6; }
+                }
+            </style>
+            <path class='bs-blue' fill-rule='evenodd' clip-rule='evenodd' d='M360.864 113.809C310.621 114.427 275.163 130.848 253.475 147.45C341.973 114.79 400.1 121.039 422.951 169.429C447.873 222.179 418.155 299.561 328.531 359.613C211.442 438.048 119.565 441.535 62.0195 384.208C89.6661 445.023 158.837 460.863 245.737 433.361C363.662 396.015 439.19 332.293 469.525 250.952C501.785 164.452 453.104 112.683 360.864 113.809Z'/>
+            <path class='bs-orange' fill-rule='evenodd' clip-rule='evenodd' d='M139.619 385.588C189.899 384.971 225.356 368.514 247.008 351.948C158.546 384.571 100.42 378.359 77.5321 329.932C52.6103 277.218 82.3276 199.801 171.988 139.785C289.077 61.3133 380.954 57.8621 438.5 115.19C410.853 54.3744 341.646 38.5349 254.783 66.0361C136.821 103.383 61.2929 167.104 30.958 248.445C-1.30243 334.945 47.4151 386.715 139.619 385.588Z'/>
+        </svg>
+    ">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+        :root {
+            --primary-color: #004a99;
+            --secondary-color: #f39c12;
+            --background-color: #f0f2f5;
+            --card-bg-color: #ffffff;
+            --text-color: #333;
+            --light-text-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --transition-speed: 0.3s;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+        }
+
+        #sidebar-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            z-index: 999;
+            opacity: 0; visibility: hidden;
+            transition: opacity var(--transition-speed) ease, visibility 0s var(--transition-speed);
+        }
+        #sidebar-overlay.active {
+            opacity: 1; visibility: visible; transition-delay: 0s;
+        }
+
+        #sidebar {
+            width: 280px; background-color: var(--card-bg-color); padding: 20px;
+            height: 100vh; position: fixed; top: 0; left: 0;
+            box-shadow: var(--shadow); display: flex; flex-direction: column;
+            z-index: 1000; transform: translateX(-100%);
+            transition: transform var(--transition-speed) ease-in-out;
+            box-sizing: border-box;
+        }
+        #sidebar.active { transform: translateX(0); }
+        
+        #sidebar-toggle {
+            position: fixed; top: 15px; left: 15px; z-index: 1001;
+            background: var(--primary-color); color: white;
+            border: none; border-radius: 8px; width: 45px; height: 45px;
+            font-size: 24px; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: grid; place-items: center;
+        }
+
+        #sidebar h2 { color: var(--primary-color); text-align: center; margin: 10px 0 30px 0; }
+        .filter-group { margin-bottom: 20px; }
+        .filter-group label { font-weight: 600; margin-bottom: 8px; display: block; color: #555; }
+        .filter-group select, .filter-group input {
+            width: 100%; padding: 10px; border-radius: 5px; border: 1px solid var(--border-color);
+            background-color: #f8f9fa; box-sizing: border-box;
+        }
+
+        #reset-filters {
+            background-color: var(--secondary-color); color: var(--card-bg-color);
+            border: none; padding: 12px; border-radius: 5px;
+            cursor: pointer; font-weight: 600; margin-top: auto;
+            transition: background-color 0.2s;
+        }
+        #reset-filters:hover { background-color: #e67e22; }
+
+        #main-content {
+            padding: 20px; width: 100%; box-sizing: border-box;
+            transition: margin-left var(--transition-speed) ease-in-out;
+        }
+        
+        @media (min-width: 992px) {
+            #sidebar-toggle { display: none; }
+            #sidebar { transform: translateX(0); }
+            #sidebar-overlay { display: none; }
+            #main-content { margin-left: 280px; width: calc(100% - 280px); }
+        }
+
+        header {
+            background-color: var(--card-bg-color); color: var(--primary-color);
+            padding: 20px; text-align: center; border-radius: 8px;
+            margin-bottom: 20px; box-shadow: var(--shadow);
+        }
+
+        h1 { margin: 0; font-size: 1.8em; }
+
+        .kpi-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px; margin-bottom: 20px;
+        }
+        .kpi-card {
+            background-color: var(--card-bg-color); padding: 20px;
+            border-radius: 8px; box-shadow: var(--shadow);
+            text-align: center; border-left: 5px solid var(--primary-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0,0,0,0.1); }
+        .kpi-card h3 { margin: 0 0 10px 0; color: #555; font-size: 1em; }
+        .kpi-card p { font-size: 2em; margin: 0; font-weight: 600; color: var(--primary-color); }
+        
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-card {
+            background-color: var(--card-bg-color); padding: 20px;
+            border-radius: 8px; box-shadow: var(--shadow);
+        }
+        
+        .table-container {
+            margin-top: 20px; background-color: var(--card-bg-color);
+            padding: 20px; border-radius: 8px; box-shadow: var(--shadow);
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; border: 1px solid var(--border-color); text-align: left; white-space: nowrap; }
+        th {
+            background-color: var(--primary-color); color: var(--light-text-color);
+            cursor: pointer; position: relative; user-select: none;
+        }
+        th .sort-indicator { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        
+        .table-controls-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 10px 0;
+        }
+        .search-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-container select, .search-container input {
+            padding: 8px; border-radius: 5px; border: 1px solid var(--border-color);
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .pagination { display: flex; gap: 5px; }
+        .pagination button {
+            padding: 8px 12px; border: 1px solid var(--border-color); background-color: white;
+            cursor: pointer; border-radius: 4px; transition: background-color 0.2s, color 0.2s;
+        }
+        .pagination button:hover:not(:disabled) { background-color: #e9ecef; }
+        .pagination button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .pagination button:disabled { cursor: not-allowed; opacity: 0.5; }
+        
+        @media (max-width: 1200px) { .chart-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) {
+            .table-controls-wrapper { flex-direction: column; align-items: stretch; }
+            .pagination-container { justify-content: center; }
+        }
+        @media (max-width: 768px) {
+            .kpi-container { grid-template-columns: 1fr; }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="sidebar-overlay"></div>
+    <button id="sidebar-toggle">☰</button>
+
+    <div id="sidebar">
+        <h2>Filter Analisis</h2>
+        <div class="filter-group">
+            <label for="month-filter">Filter Berdasarkan Bulan</label>
+            <select id="month-filter"><option value="all">Semua Bulan</option></select>
+        </div>
+        <div class="filter-group">
+            <label for="branch-filter">Filter Unit Kantor</label>
+            <select id="branch-filter"><option value="all">Semua Unit Kantor</option></select>
+        </div>
+        <button id="reset-filters">Reset Filter</button>
+    </div>
+
+    <main id="main-content">
+        <header><h1>Dashboard Analisis Transaksi Teller</h1></header>
+        <div class="kpi-container">
+            <div class="kpi-card"><h3>Total Transaksi</h3><p id="kpi-total-transaksi">0</p></div>
+            <div class="kpi-card"><h3>Total Teller (Existing)</h3><p id="kpi-total-teller">0</p></div>
+            <div class="kpi-card"><h3>Rata-rata Transaksi per Teller</h3><p id="kpi-avg-trx-per-teller">0</p></div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card"><h3>Tren Transaksi Bulanan</h3><canvas id="monthlyTrendChart"></canvas></div>
+            <div class="chart-card"><h3>Distribusi Tipe Transaksi</h3><canvas id="transactionTypeChart"></canvas></div>
+            <div class="chart-card"><h3>Top 10 Cabang Berdasarkan Transaksi</h3><canvas id="branchPerformanceChart"></canvas></div>
+            <div class="chart-card"><h3>Efisiensi Teller (Top 10 Cabang)</h3><canvas id="tellerEfficiencyChart"></canvas></div>
+        </div>
+        
+        <div class="table-container">
+            <h2>Data Mentah</h2>
+            <div class="table-controls-wrapper">
+                <div class="search-container">
+                    <input type="search" id="search-input" placeholder="Ketik untuk mencari...">
+                    <select id="search-column-filter" style="width: 180px;" ></select>
+                </div>
+                <div class="pagination-container">
+                    <div>
+                        <label for="table-row-limit" style="margin-right: 5px;">Baris:</label>
+                        <select id="table-row-limit" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color);">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="pagination" id="pagination-controls"></div>
+                </div>
+            </div>
+            <table id="raw-data-table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+//paste disini
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof rawData === 'undefined' || rawData.length === 0) {
+            alert('Data tidak ditemukan. Mohon paste konstanta `rawData` Anda ke dalam file HTML.');
+            return;
+        }
+
+        // --- State Management ---
+        let currentFilteredData = [...rawData];
+        let currentPage = 1;
+        let rowsPerPage = 10;
+        let sortState = { key: 'No', order: 'asc' };
+
+        // --- Elemen-elemen DOM ---
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const monthFilter = document.getElementById('month-filter');
+        const branchFilter = document.getElementById('branch-filter');
+        const searchInput = document.getElementById('search-input');
+        const searchColumnFilter = document.getElementById('search-column-filter');
+        const resetBtn = document.getElementById('reset-filters');
+        const rowLimitSelect = document.getElementById('table-row-limit');
+
+        // --- Inisialisasi Chart ---
+        Chart.defaults.color = '#555';
+        const chartColors = { blue: '#3498db', orange: '#f39c12', red: '#e74c3c', green: '#2ecc71', purple: '#8e44ad', grey: '#95a5a6' };
+        const createChart = (ctx, type, data, options) => new Chart(ctx, { type, data, options });
+
+        const monthlyTrendChart = createChart(document.getElementById('monthlyTrendChart'), 'line', { labels: [], datasets: [{ label: 'Jumlah Transaksi', data: [], borderColor: chartColors.blue, tension: 0.1, fill: false }] });
+        const transactionTypeChart = createChart(document.getElementById('transactionTypeChart'), 'pie', { labels: [], datasets: [{ data: [], backgroundColor: [chartColors.blue, chartColors.orange] }] });
+        const branchPerformanceChart = createChart(document.getElementById('branchPerformanceChart'), 'bar', { labels: [], datasets: [{ label: 'Jumlah Transaksi', data: [], backgroundColor: chartColors.green }] }, { indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } });
+        const tellerEfficiencyChart = createChart(document.getElementById('tellerEfficiencyChart'), 'bar', { labels: [], datasets: [{ label: 'Teller Existing', data: [], backgroundColor: chartColors.purple }, { label: 'Teller Ideal', data: [], backgroundColor: chartColors.grey }] }, { indexAxis: 'y', scales: { x: { beginAtZero: true } } });
+
+        // --- Logika Sidebar ---
+        const toggleSidebar = () => { sidebar.classList.toggle('active'); sidebarOverlay.classList.toggle('active'); };
+        sidebarToggle.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // --- Fungsi Pengisian Filter ---
+        function populateFilters() {
+            // Filter Bulan & Cabang
+            const months = [...new Set(rawData.map(d => d.BULAN))].sort((a,b) => new Date('1 ' + a) - new Date('1 ' + b));
+            months.forEach(month => monthFilter.appendChild(new Option(month, month)));
+            const branches = [...new Set(rawData.map(d => d['NAMA UNIT KANTOR']))].sort();
+            branches.forEach(branch => branchFilter.appendChild(new Option(branch, branch)));
+
+            // Filter Kolom Pencarian
+            const headers = Object.keys(rawData[0]);
+            searchColumnFilter.appendChild(new Option('Default (Kode & Nama Kantor)', 'default'));
+            headers.forEach(header => searchColumnFilter.appendChild(new Option(header, header)));
+        }
+
+        // --- Fungsi Update Utama ---
+        function updateDashboard() {
+            const selectedMonth = monthFilter.value;
+            const selectedBranch = branchFilter.value;
+            const searchTerm = searchInput.value.toLowerCase();
+            const searchColumn = searchColumnFilter.value;
+
+            currentFilteredData = rawData.filter(d => {
+                const monthMatch = (selectedMonth === 'all' || d.BULAN === selectedMonth);
+                const branchMatch = (selectedBranch === 'all' || d['NAMA UNIT KANTOR'] === selectedBranch);
+                
+                let searchMatch = true;
+                if (searchTerm) {
+                    if (searchColumn === 'default') {
+                        const kdMatch = String(d['KD CAB']).toLowerCase().includes(searchTerm);
+                        const namaMatch = String(d['NAMA UNIT KANTOR']).toLowerCase().includes(searchTerm);
+                        searchMatch = kdMatch || namaMatch;
+                    } else if (d.hasOwnProperty(searchColumn)) {
+                        searchMatch = String(d[searchColumn]).toLowerCase().includes(searchTerm);
+                    }
+                }
+                
+                return monthMatch && branchMatch && searchMatch;
+            });
+            
+            updateKPIs();
+            updateCharts();
+            currentPage = 1;
+            renderTable();
+        }
+
+        // --- Fungsi Update terpisah ---
+        function updateKPIs() {
+            const totalTransaksi = currentFilteredData.reduce((sum, d) => sum + d['JUMLAH TX'], 0);
+            const uniqueBranchTeller = {};
+            currentFilteredData.forEach(d => { uniqueBranchTeller[d['NAMA UNIT KANTOR']] = d['TELLER EXISTING']; });
+            const totalTeller = Object.values(uniqueBranchTeller).reduce((sum, d) => sum + d, 0);
+            const avgTrxPerTeller = totalTeller > 0 ? (totalTransaksi / totalTeller) : 0;
+            document.getElementById('kpi-total-transaksi').textContent = totalTransaksi.toLocaleString('id-ID');
+            document.getElementById('kpi-total-teller').textContent = totalTeller.toLocaleString('id-ID');
+            document.getElementById('kpi-avg-trx-per-teller').textContent = avgTrxPerTeller.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function updateCharts() {
+            const trendData = {}, branchPerf = {}, efficiencyData = {};
+            currentFilteredData.forEach(d => {
+                if (!trendData[d.BULAN]) trendData[d.BULAN] = 0;
+                trendData[d.BULAN] += d['JUMLAH TX'];
+                const branchName = d['NAMA UNIT KANTOR'];
+                if (!branchPerf[branchName]) branchPerf[branchName] = 0;
+                branchPerf[branchName] += d['JUMLAH TX'];
+                efficiencyData[branchName] = { existing: d['TELLER EXISTING'], ideal: d['TELER IDEAL'], trx: d['JUMLAH TX'] };
+            });
+
+            const sortedMonths = Object.keys(trendData).sort((a, b) => new Date('1 ' + a) - new Date('1 ' + b));
+            monthlyTrendChart.data.labels = sortedMonths;
+            monthlyTrendChart.data.datasets[0].data = sortedMonths.map(month => trendData[month]);
+            monthlyTrendChart.update();
+
+            const totalTunai = currentFilteredData.reduce((sum, d) => sum + d['TUNAI'], 0);
+            const totalNonTunai = currentFilteredData.reduce((sum, d) => sum + d['NON TUNAI'], 0);
+            transactionTypeChart.data.labels = ['Tunai', 'Non-Tunai'];
+            transactionTypeChart.data.datasets[0].data = [totalTunai, totalNonTunai];
+            transactionTypeChart.update();
+
+            const sortedBranches = Object.entries(branchPerf).sort(([,a],[,b]) => b-a).slice(0, 10);
+            branchPerformanceChart.data.labels = sortedBranches.map(d => d[0]);
+            branchPerformanceChart.data.datasets[0].data = sortedBranches.map(d => d[1]);
+            branchPerformanceChart.update();
+
+            const sortedEfficiency = Object.entries(efficiencyData).sort(([,a],[,b]) => b.trx - a.trx).slice(0, 10);
+            tellerEfficiencyChart.data.labels = sortedEfficiency.map(d => d[0]);
+            tellerEfficiencyChart.data.datasets[0].data = sortedEfficiency.map(d => d[1].existing);
+            tellerEfficiencyChart.data.datasets[1].data = sortedEfficiency.map(d => d[1].ideal);
+            tellerEfficiencyChart.update();
+        }
+
+        // --- Logika Tabel (Sort, Paginate, Render) ---
+        function renderTable() {
+            const sortedData = [...currentFilteredData].sort((a, b) => {
+                const valA = a[sortState.key], valB = b[sortState.key];
+                const order = sortState.order === 'asc' ? 1 : -1;
+                if (typeof valA === 'number' && typeof valB === 'number') return (valA - valB) * order;
+                return String(valA).localeCompare(String(valB)) * order;
+            });
+            const start = (currentPage - 1) * rowsPerPage, end = start + rowsPerPage;
+            const paginatedData = sortedData.slice(start, end);
+            populateTableBody(paginatedData);
+            populateTableHead();
+            renderPagination(sortedData.length);
+        }
+
+        function populateTableHead() {
+            const tableHead = document.querySelector('#raw-data-table thead');
+            if (rawData.length === 0) { tableHead.innerHTML = '<tr><th>Info</th></tr>'; return; }
+            const headers = Object.keys(rawData[0]);
+            let headerRowHTML = '<tr>';
+            headers.forEach(key => {
+                const indicator = key === sortState.key ? (sortState.order === 'asc' ? '▲' : '▼') : '';
+                headerRowHTML += `<th data-key="${key}">${key} <span class="sort-indicator">${indicator}</span></th>`;
+            });
+            headerRowHTML += '</tr>';
+            tableHead.innerHTML = headerRowHTML;
+            tableHead.querySelectorAll('th').forEach(th => {
+                th.addEventListener('click', () => {
+                    const key = th.dataset.key; if(!key) return;
+                    if (sortState.key === key) sortState.order = sortState.order === 'asc' ? 'desc' : 'asc';
+                    else { sortState.key = key; sortState.order = 'asc'; }
+                    currentPage = 1; renderTable();
+                });
+            });
+        }
+        
+        function populateTableBody(data) {
+            const tableBody = document.querySelector('#raw-data-table tbody');
+            tableBody.innerHTML = '';
+            if (data.length === 0) { tableBody.innerHTML = '<tr><td colspan="100%">Tidak ada data yang cocok.</td></tr>'; return; }
+            const headers = Object.keys(data[0]);
+            data.forEach(row => {
+                let rowHTML = '<tr>';
+                headers.forEach(h => {
+                    let value = row[h];
+                    if(typeof value === 'number') value = value.toLocaleString('id-ID');
+                    rowHTML += `<td>${value}</td>`;
+                });
+                rowHTML += '</tr>';
+                tableBody.innerHTML += rowHTML;
+            });
+        }
+        
+        function renderPagination(totalRows) {
+            const paginationControls = document.getElementById('pagination-controls');
+            paginationControls.innerHTML = '';
+            const pageCount = Math.ceil(totalRows / rowsPerPage);
+            if (pageCount <= 1) return;
+            const createButton = (text, pageNum, disabled = false) => {
+                const button = document.createElement('button');
+                button.textContent = text;
+                button.disabled = disabled;
+                if (pageNum) {
+                    if (pageNum === currentPage) button.classList.add('active');
+                    button.addEventListener('click', () => { currentPage = pageNum; renderTable(); });
+                }
+                return button;
+            };
+            paginationControls.appendChild(createButton('«', currentPage - 1, currentPage === 1));
+            // Logic untuk menampilkan nomor halaman yang relevan
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(pageCount, currentPage + 2);
+            if (currentPage < 3) endPage = Math.min(5, pageCount);
+            if (currentPage > pageCount - 2) startPage = Math.max(1, pageCount - 4);
+
+            if (startPage > 1) paginationControls.appendChild(createButton('...'));
+            for (let i = startPage; i <= endPage; i++) paginationControls.appendChild(createButton(i, i));
+            if (endPage < pageCount) paginationControls.appendChild(createButton('...'));
+
+            paginationControls.appendChild(createButton('»', currentPage + 1, currentPage === pageCount));
+        }
+
+        // --- Event Listeners ---
+        monthFilter.addEventListener('change', updateDashboard);
+        branchFilter.addEventListener('change', updateDashboard);
+        searchInput.addEventListener('input', updateDashboard);
+        searchColumnFilter.addEventListener('change', updateDashboard);
+
+        resetBtn.addEventListener('click', () => {
+            monthFilter.value = 'all';
+            branchFilter.value = 'all';
+            searchInput.value = '';
+            searchColumnFilter.value = 'default';
+            sortState = { key: 'No', order: 'asc' };
+            updateDashboard();
+        });
+        
+        rowLimitSelect.addEventListener('change', (e) => {
+            rowsPerPage = parseInt(e.target.value);
+            currentPage = 1;
+            renderTable();
+        });
+
+        // --- Panggilan Awal ---
+        populateFilters();
+        updateDashboard();
+    });
+    </script>
+</body>
+</html>
